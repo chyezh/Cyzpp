@@ -4,25 +4,31 @@
 #include <functional>
 #include "common.h"
 #include "utility.h"
+#include "pthread.h"
 
 CYZPP_BEGIN
-namespace multithread_using {
+namespace detail {
 
+// data structure for packaging function to run in new thread
 struct thread_task_data_base {
     virtual ~thread_task_data_base() {}
     virtual void run() = 0;
 };
 
+// control block of thread
 struct thread_control_data {
+  typedef pthread_t handle;
+
   thread_control_data() : tid_(0) {}
 
   thread_control_data(const thread_control_data&) = delete;
 
   thread_control_data &operator=(const thread_control_data&) = delete;
 
-  pthread_t tid_;
+  handle tid_;
 };
 
+// data structure for packaging function to run in new thread
 template <class Function, class... Args>
 struct thread_task_data : public thread_task_data_base {
  public:
@@ -37,14 +43,13 @@ struct thread_task_data : public thread_task_data_base {
 
   // package the f(args...
   template <size_t... Index>
-  void in_run(compile_time_using::sequence_index<Index...>) {
-     ::std::invoke(::std::get<0>(tp_),
-           std::get<Index>(tp_)...);
+  void in_run(utility::sequence_index<Index...>) {
+     ::std::get<0>(tp_)(std::get<Index>(tp_)...);
   }
 
   void run() {
     // run the f(args...)
-    typedef typename compile_time_using::make_sequence_index<
+    typedef typename utility::make_sequence_index<
         1, ::std::tuple_size<std::tuple<Function, Args...>>::value - 1>::type
         index_type;
     in_run(index_type{});
@@ -71,6 +76,9 @@ inline ::std::unique_ptr<thread_task_data_base> make_thread_task_data(
 
 class thread {
  public:
+  // member type
+  typedef typename detail::thread_control_data::handle handle;
+
   // constructor
   thread() noexcept;
 
@@ -89,6 +97,11 @@ class thread {
 
   void swap(thread &) noexcept;
 
+  // query
+  bool joinable() const;
+
+  handle native_handle() const;
+
   // thread operation
   int start();
 
@@ -96,22 +109,22 @@ class thread {
 
   void detach();
 
- public:
+  static handle current_thread() noexcept;
+
+ private:
   static void *thread_entry(void *);
 
-  ::std::unique_ptr<multithread_using::thread_task_data_base> task_;
-  ::std::unique_ptr<multithread_using::thread_control_data> control_;
+  ::std::unique_ptr<detail::thread_task_data_base> task_;
+  ::std::unique_ptr<detail::thread_control_data> control_;
 };
 
 template <class Function, class... Args>
 thread::thread(Function &&f, Args &&... args)
-    : task_(multithread_using::make_thread_task_data(::std::forward<Function>(f),
+    : task_(detail::make_thread_task_data(::std::forward<Function>(f),
                                   ::std::forward<Args>(args)...)),
       control_(nullptr) {}
 
-class mutex {};
-
-class condition_variable {};
+void swap(thread &lhs, thread &rhs) noexcept;
 
 CYZPP_END
 

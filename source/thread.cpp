@@ -1,34 +1,16 @@
 #include "thread.h"
 #include <exception>
-#include <memory>
 #include <tuple>
 #include <utility>
-#include "pthread.h"
-
 
 CYZPP_BEGIN
 
-// implement inside thread namespace
-namespace multithread_using {
-
-// data structure for packaging function to run in new thread
-
-// control block of thread
-
-
-
-}  // namespace multithread_using
-
 // >>> thread manage object
-
 // constructor
-
-
 thread::thread() noexcept : task_(nullptr), control_(nullptr) {}
 
 thread::thread(thread &&other) noexcept
     : task_(::std::move(other.task_)), control_(::std::move(other.control_)) {}
-
 
 // move assignment
 thread &thread::operator=(thread &&other) noexcept {
@@ -51,17 +33,28 @@ void thread::swap(thread &other) noexcept {
 }
 
 void *thread::thread_entry(void *data) {
-  multithread_using::thread_task_data_base *p =
-      (multithread_using::thread_task_data_base *)data;
+  detail::thread_task_data_base *p =
+      (detail::thread_task_data_base *)data;
   p->run();
   return 0;
+}
+
+// query
+bool thread::joinable() const {
+  return control_ != nullptr;
+}
+
+thread::handle thread::native_handle() const {
+  if(control_ == nullptr)
+    ::std::terminate();
+  return control_->tid_;
 }
 
 // control function
 int thread::start() {
   if(control_ != nullptr)
     ::std::terminate();
-  control_ = ::std::make_unique<multithread_using::thread_control_data>();
+  control_ = ::std::make_unique<detail::thread_control_data>();
   return pthread_create(&control_->tid_, nullptr, thread_entry, task_.get());
 }
 
@@ -78,5 +71,15 @@ void thread::detach() {
   pthread_detach(control_->tid_);
   control_.release();
 }
+
+thread::handle thread::current_thread() noexcept {
+  return pthread_self();
+}
+
+void swap(thread &lhs, thread &rhs) noexcept {
+  lhs.swap(rhs);
+}
+
+
 
 CYZPP_END
