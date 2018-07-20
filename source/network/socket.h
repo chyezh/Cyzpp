@@ -9,6 +9,7 @@ CYZPP_BEGIN
 
 class InternetAddress;
 
+// move-only class
 class Socket {
  public:
   typedef int sockfd_t;
@@ -23,7 +24,13 @@ class Socket {
 
   Socket(const Socket &) = delete;
 
-  Socket &operator=(const Socket) = delete;
+  Socket(Socket && sock);
+
+  Socket &operator=(const Socket &) = delete;
+
+  Socket &operator=(Socket && sock);
+
+  bool valid() { return sockfd_ != -1; }
 
   sockfd_t nativeHandler() const { return sockfd_; }
 
@@ -31,9 +38,9 @@ class Socket {
   
   void listen();
 
-  sockfd_t accept(InternetAddress& address);
+  Socket accept(InternetAddress& address);
 
-  void connect();
+  bool connect(const InternetAddress& address);
 
   void close();
 
