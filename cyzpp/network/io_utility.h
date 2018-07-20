@@ -1,7 +1,7 @@
 #ifndef _CYZPP_IO_UTILITY_H__
 #define _CYZPP_IO_UTILITY_H__
 
-#include "../common.h"
+#include "../basic/common.h"
 #include <unistd.h>
 
 CYZPP_BEGIN

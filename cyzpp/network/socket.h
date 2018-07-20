@@ -1,7 +1,7 @@
 #ifndef _CYZPP_NETWORK_SOCKET_H__
 #define _CYZPP_NETWORK_SOCKET_H__
 
-#include "../common.h"
+#include "../basic/common.h"
 #include <sys/socket.h>
 #include "internet_address.h"
 
