@@ -1,17 +1,17 @@
 #ifndef _CYZPP_THREAD_SAFE_H__
 #define _CYZPP_THREAD_SAFE_H__
 #include <condition_variable>
-#include <deque>
+#include <queue>
 #include <memory>
 #include <mutex>
 #include "../basic/common.h"
 
 // thread safe task queue
-template <class T, class Allocator = std::allocator<T>>
+template <class T>
 class ThreadSafeQueue {
  public:
   // >>> member type
-  typedef std::deque<T, Allocator> container_type;
+  typedef std::queue<T> container_type;
   typedef typename container_type::size_type value_type;
   typedef typename container_type::size_type iterator;
   typedef typename container_type::size_type const_iterator;
@@ -36,46 +36,119 @@ class ThreadSafeQueue {
   std::unique_ptr<value_type> wait_pop();
 
  private:
-  std::deque<T, Allocator> container_;
+  std::queue<T> container_;
   mutable std::mutex mutex_;
   mutable std::condition_variable cond_;
 };
 
-template <class T, class Allocator>
-bool ThreadSafeQueue<T, Allocator>::empty() const {
+template <class T>
+bool ThreadSafeQueue<T>::empty() const {
   std::lock_guard<std::mutex> lk(mutex_);
   return container_.empty();
 }
 
-template <class T, class Allocator>
-void ThreadSafeQueue<T, Allocator>::push(value_type value) {
+template <class T>
+void ThreadSafeQueue<T>::push(value_type value) {
   std::lock_guard<std::mutex> lk(mutex_);
-  container_.emplace_back(value);
+  container_.emplace(value);
   cond_.notify_one();
 }
 
-template <class T, class Allocator>
-std::unique_ptr<typename ThreadSafeQueue<T, Allocator>::value_type>
-ThreadSafeQueue<T, Allocator>::pop() {
+template <class T>
+std::unique_ptr<typename ThreadSafeQueue<T>::value_type>
+ThreadSafeQueue<T>::pop() {
   std::lock_guard<std::mutex> lk(mutex_);
   if (container_.empty())
     // return null pointer if empty
     return nullptr;
   else {
-    std::unique_ptr<T, Allocator> p = std::make_unique<T>(container_.front());
-    container_.pop_front();
+    std::unique_ptr<T> p = std::make_unique<T>(container_.front());
+    container_.pop();
     return p;
   }
 }
 
-template <class T, class Allocator>
-std::unique_ptr<typename ThreadSafeQueue<T, Allocator>::value_type>
-ThreadSafeQueue<T, Allocator>::wait_pop() {
+template <class T>
+std::unique_ptr<typename ThreadSafeQueue<T>::value_type>
+ThreadSafeQueue<T>::wait_pop() {
   std::unique_lock<std::mutex> lk(mutex_);
   // check empty.
   cond_.wait(lk, [this](){ return !container_.empty(); });
-  std::unique_ptr<T, Allocator> p = std::make_unique<T>(container_.front());
-  container_.pop_front();
+  std::unique_ptr<T> p = std::make_unique<T>(container_.front());
+  container_.pop();
+  return p;
+}
+
+// thread safe task priority queue
+template <class T>
+class ThreadSafePriorityQueue {
+ public:
+  // >>> member type
+  typedef std::queue<T> container_type;
+  typedef typename container_type::size_type value_type;
+  typedef typename container_type::size_type iterator;
+  typedef typename container_type::size_type const_iterator;
+  typedef typename container_type::reference reference;
+  typedef typename container_type::const_reference const_reference;
+
+ public:
+  // constructor
+  ThreadSafePriorityQueue() {}
+
+  ThreadSafePriorityQueue(const ThreadSafePriorityQueue &queue) = delete;
+
+  ThreadSafePriorityQueue &operator=(const ThreadSafePriorityQueue &) = delete;
+
+  bool empty() const;
+
+  void push(value_type value);
+
+  std::unique_ptr<value_type> pop();
+
+  // wait until queue could pop an element 
+  std::unique_ptr<value_type> wait_pop();
+
+ private:
+  std::priority_queue<T> container_;
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cond_;
+};
+
+template <class T>
+bool ThreadSafePriorityQueue<T>::empty() const {
+  std::lock_guard<std::mutex> lk(mutex_);
+  return container_.empty();
+}
+
+template <class T>
+void ThreadSafePriorityQueue<T>::push(value_type value) {
+  std::lock_guard<std::mutex> lk(mutex_);
+  container_.emplace_back(value);
+  cond_.notify_one();
+}
+
+template <class T>
+std::unique_ptr<typename ThreadSafePriorityQueue<T>::value_type>
+ThreadSafePriorityQueue<T>::pop() {
+  std::lock_guard<std::mutex> lk(mutex_);
+  if (container_.empty())
+    // return null pointer if empty
+    return nullptr;
+  else {
+    std::unique_ptr<T> p = std::make_unique<T>(container_.top());
+    container_.pop();
+    return p;
+  }
+}
+
+template <class T>
+std::unique_ptr<typename ThreadSafePriorityQueue<T>::value_type>
+ThreadSafePriorityQueue<T>::wait_pop() {
+  std::unique_lock<std::mutex> lk(mutex_);
+  // check empty.
+  cond_.wait(lk, [this](){ return !container_.empty(); });
+  std::unique_ptr<T> p = std::make_unique<T>(container_.top());
+  container_.pop();
   return p;
 }
 
