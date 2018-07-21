@@ -12,11 +12,7 @@ class ThreadSafeQueue {
  public:
   // >>> member type
   typedef std::queue<T> container_type;
-  typedef typename container_type::size_type value_type;
-  typedef typename container_type::size_type iterator;
-  typedef typename container_type::size_type const_iterator;
-  typedef typename container_type::reference reference;
-  typedef typename container_type::const_reference const_reference;
+  typedef typename container_type::value_type value_type;
 
  public:
   // constructor
@@ -84,12 +80,8 @@ template <class T>
 class ThreadSafePriorityQueue {
  public:
   // >>> member type
-  typedef std::queue<T> container_type;
-  typedef typename container_type::size_type value_type;
-  typedef typename container_type::size_type iterator;
-  typedef typename container_type::size_type const_iterator;
-  typedef typename container_type::reference reference;
-  typedef typename container_type::const_reference const_reference;
+  typedef std::priority_queue<T> container_type;
+  typedef typename container_type::value_type value_type;
 
  public:
   // constructor
@@ -123,7 +115,7 @@ bool ThreadSafePriorityQueue<T>::empty() const {
 template <class T>
 void ThreadSafePriorityQueue<T>::push(value_type value) {
   std::lock_guard<std::mutex> lk(mutex_);
-  container_.emplace_back(value);
+  container_.emplace(value);
   cond_.notify_one();
 }
 
